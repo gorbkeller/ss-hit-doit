@@ -2,19 +2,44 @@
 // Gordon Keller
 // 12/05/21
 
+/* -- Expectations for ss functionality -- */
+/*
+ * 1. To create a symlink for a file (explicitly or implicitly) OR a directory.
+ * 2. To add a reference line to the link reference file stored in /tmp/ss-hit-doit of the form:
+ *      " [original file], [symlink to file], [status ((l)inked, (t)ransferred, or (d)eleted] "
+ */
+ 
+ // Based on the functionality of symlink(), a single alias cannot refer to multiple
+ // original files. In keeping with this, checks to the reference file will be made
+ // to ensure that a new link created has a unique alias assigned to it. Additionally, 
+ // functionality should be included which allows the user to query the link reference 
+ // file to avoid needlessly creating separate aliases for a single file.
+
 /*
  * ss tests
  *  -> performing symlink
- *      for single file
- *      for multiple files
- *      for directory
- *      for multiple directories
+ *      a. for single file successfully against explicit path (with filename)
+ *      b. for single file unsuccessfully against explicit path (with filename) due to:
+ *          1. attempting to save over an alias that is taken with the same original filename
+ *          2. attempting to save for a file that doesn't exist
+ *              -> symlink succeeds without a check
+ *              -> apply a check and verify that it fails
+ *          3. attempting to save in a directory that doesn't exist 
+ *          4. attempting to save over a preexisting alias with a different original file
+ *      c. for single file successfully against implicit path (without filename)
+ *      d. for single file unsuccessfully against implicit path (without filename) due to:
+ *          1. attempting to save over an alias that is taken (i.e., has the symbolic name at link but not passed explicitly) 
+ *          2. attempting to save for a file that doesn't exist
+ *          3. attempting to save in a directory that doesn't exist 
+ *      d. for multiple files
+ *      e. for directory
+ *      f. for multiple directories
  *  -> saving reference
  *      for single file
  *      for multiple files
  *      for directory
  *      for multiple directories
- *  -> delete symlink and reference
+ *  -> delete symlink and reference (" ss -d ")
  *
  * hit tests
  *  -> all existing entries
@@ -48,15 +73,17 @@ int assert_failure( ret_val )
         { return FAILED; }
 }
 
-void print_test_result( int test_result, const char *func_name )
+void print_test_result( int test_result, const char *func_name, const char *test_name )
 {
     if ( test_result == PASSED )
     {
-        printf( "%s : PASSED\n", func_name );
+        char result[] = "\033[1;32mPASSED\033[0m";
+        printf( "%s (%s): %s\n", func_name, test_name, result );
     }
     else if ( test_result == FAILED ) 
     {
-        printf( "%s : FAILED\n", func_name );
+        char result[] = "\033[1;31mFAILED\033[0m";
+        printf( "%s (%s): %s\n", func_name, test_name, result );
     }
 }
 
@@ -101,7 +128,7 @@ int delete_dummy_file( const char *fName )
     return 0;
 }
 
-int test_ss_symlink_single_f()
+int test_ss_symlink_single_f_explicit()
 {
     // get the current working directory -- assume that the absolute path
     // will be provided by default in the actual code
@@ -118,6 +145,8 @@ int test_ss_symlink_single_f()
     // create test file
     make_dummy_file( full_fName );
 
+/* -- a. for single file successfully against explicit path (with filename) -- */
+ 
     // link test file to alias
     int ret_val = symlink( full_fName, full_aName );
     if ( ret_val != 0 )
@@ -128,8 +157,13 @@ int test_ss_symlink_single_f()
     }
         
     int test_result = assert_success( ret_val );
-    print_test_result( test_result , __func__ );
+    print_test_result( test_result , __func__ , "a1" );
 
+/* end of subtest a. */
+
+/* -- b. for single file unsuccessfully against explicit path (with filename) due to: -- */
+
+// 1. attempting to save over an alias that is taken with the same original filename
     // link test file to alias again (expect to fail)
     ret_val = symlink( full_fName, full_aName );
     if ( ret_val != 0 )
@@ -140,34 +174,36 @@ int test_ss_symlink_single_f()
     }
         
     test_result = assert_failure( ret_val );
-    print_test_result( test_result , __func__ );
+    print_test_result( test_result , __func__, "b1" );
 
     // delete test text file and alias
     remove( test_fName );
     remove( test_aName );
 
+// 2. attempting to save for a file that doesn't exist
     // link test file to alias again (will succeed even though we have deleted original file)
     ret_val = symlink( full_fName, full_aName );
     if ( ret_val != 0 )
     {
         char err_msg[256];
-        sprintf(err_msg, "ERROR: could not create symlink %s -> %s\n", full_fName, full_aName );
+        sprintf( err_msg, "ERROR: could not create symlink %s -> %s\n", full_fName, full_aName );
         perror( err_msg );
     }
         
     test_result = assert_success( ret_val );
-    print_test_result( test_result , __func__ );
+    print_test_result( test_result , __func__ , "b2" );
 
     // create the newly created alias which points to nothing
     remove( test_aName );
 
+// 3. attempting to save in a directory that doesn't exist 
     // link test file to alias again (expect to fail)
     if( access( full_fName, F_OK ) == 0 ) {
         // original file exists
         ret_val = symlink( full_fName, full_aName );
     } else {
         // file doesn't exist
-        fprintf(stderr, "ERROR: attempted to make alias for non-existent file %s\n", full_fName);
+        fprintf( stderr, "ERROR: attempted to make alias for non-existent file %s\n", full_fName );
         remove( test_aName );
         ret_val = -1;
     }
@@ -175,20 +211,31 @@ int test_ss_symlink_single_f()
     if ( ret_val != 0 )
     {
         char err_msg[256];
-        sprintf(err_msg, "ERROR: could not create symlink %s -> %s\n", full_fName, full_aName );
+        sprintf( err_msg, "ERROR: could not create symlink %s -> %s\n", full_fName, full_aName );
         perror( err_msg );
     }
 
     test_result = assert_failure( ret_val );
-    print_test_result( test_result , __func__ );
+    print_test_result( test_result , __func__ , "b3" );
 
+// 4. attempting to save over a preexisting alias with a different original file
+
+
+    /* end of subtest b. */
     return 0;
 }
+
+/*
+int test_ss_symlink_single_f_implicit()
+{
+
+}*/
 
 int main( void )
 {
     // run tests
-    test_ss_symlink_single_f();
+    test_ss_symlink_single_f_explicit();
+    //test_ss_symlink_single_f_implicit();
 
     return 0;
 
