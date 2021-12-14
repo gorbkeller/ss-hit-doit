@@ -30,40 +30,46 @@ int main(void) {
     char dest_fName[BUF_REF_PATH_LEN];
     char status[MAX_CHARS_STATUS];
     char ref_line_buf[BUF_REF_LINE_LEN];
+    int line_n = 0; // the line number which the referenced line refers to
 
     // open the ref file
     ref_fPtr = fopen( ref_fName, "r" );
     if ( ref_fPtr == NULL ) {
-        printf( "Failed to open reference file." );
+        printf( "Failed to open reference file.\n" );
         exit( EXIT_FAILURE );
     }
 
-    // read csv one line at a time
-    while ( fgets( ref_line_buf, BUF_REF_LINE_LEN, ref_fPtr ) )
-    {
-        // parse the elements from line
-        parseRefLine( ref_line_buf, orig_fName, dest_fName, status );
-        printf( "%s -> %s (%s)\n", orig_fName, dest_fName, status );
-
-        // remove the alias
-        int ret_val = remove(dest_fName);
-        if ( ret_val != 0 ) {
-            fprintf(stderr, "Failed to delete the alias : %s.", dest_fName );
-            exit( EXIT_FAILURE );
-        }
-
-        // copy file
-        ret_val = copyFile( orig_fName, dest_fName );
-        if ( ret_val < 0 )
-        {
-            fprintf( stderr, "Error copying file." );
-            fclose( ref_fPtr );
-            exit( EXIT_FAILURE );
-        }
+    // find the line for which we need to perform the hit (eventually: all lines for which...)
+    int ret_val = getRefLineDetails( orig_fName, dest_fName, status, &line_n ) // for now, just parse into the arguments passed by reference
+    if ( ret_val == -1 ) {
+        printf( "Failed to get reference line details for file specified: %s\n" );
+        fclose( ref_fPtr );
+        exit( EXIT_FAILURE );
     }
-
-    // clean up
+    
+    // if successful, close the reference file and proceed
     fclose( ref_fPtr );
+
+    // perform the copy 
+    ret_val = copyFile( orig_fName, dest_fName );
+    if ( ret_val == -1 ) {
+        printf( "Failed to get reference line details for file specified: %s\n" );
+        exit( EXIT_FAILURE );
+    }
+    
+    // update the status
+    sprintf( status, "hit" );
+
+    // write the latest details to the ref file (update existing line)
+    ret_val = updateRefLineDetals( orig_fName, dest_fName, status, line_n )
+    if ( ret_val == -1 ) {
+        fprintf( stderr, "ERROR: failed to update the reference line details. Details:\n
+                \t original fname: %s\n
+                \t alias fname: %s\n,
+                \t status: %s,
+                \t line number: %d", orig_fName, dest_fName, status, line_n );
+        exit( EXIT_FAILURE );
+    }
 
     return 0;
 }
