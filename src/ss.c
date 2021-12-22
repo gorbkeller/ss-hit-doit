@@ -9,14 +9,7 @@
 #define BUFFER_SIZE 10000
 #define STR_BUFFER_SIZE 1000
 
-struct ref_info {
-    char origin[STR_BUFFER_SIZE];
-    char link[STR_BUFFER_SIZE];
-    char status[8];
-};
-
 void readFile(FILE * fPtr);
-//void generateReferenceText(const char *buf, struct ref_info *info);
 int createLink( const char *origin_str, const char *dest_str );
 int generateLinkReference( char *buf, const char *origin_str, const char *dest_str );
 
@@ -36,11 +29,7 @@ int main( int argc, const char *argv[] ) {
     strcpy( copy_path, argv[2] );
 
     FILE *ref_fPtr;
-    struct ref_info *info = malloc(sizeof(struct ref_info));
     char *ref_info_buf = malloc(BUFFER_SIZE);
-    
-    // parse arguments/print use if none supplied
-    // TO-DO
     
     // create the symlink
     int success = symlink(origin_path,copy_path);
@@ -69,11 +58,17 @@ int main( int argc, const char *argv[] ) {
     }
 
     // append to the file
-    fputs(ref_info_buf,ref_fPtr);
+    int ret_val = fputs(ref_info_buf,ref_fPtr);
+    if (ret_val == EOF)
+    {
+        fprintf(stderr,"ERROR: failed to write the link info to reference file.\n");
+        fclose(ref_fPtr);
+        exit(EXIT_FAILURE);
 
+    }
+
+    // clean up
     fclose(ref_fPtr);
-
-    free(info);
     free(ref_info_buf);
 
     return 0;
